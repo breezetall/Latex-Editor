@@ -1,0 +1,65 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+
+  # Auth Service (.NET)
+  auth-api:
+    build: ./Backend/Auth
+    container_name: auth-service
+    environment:
+      - ASPNETCORE_HTTP_PORTS=7269
+      - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=auth_db;Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+      - JwtSettings__Secret=${JWT_SECRET}
+      - JwtSettings__Issuer=AuthService
+      - JwtSettings__Audience=ReactApp
+    ports:
+      - "7269:7269"
+    depends_on:
+      - db
+
+  # Latex Server (.NET)
+  latex-server:
+    build: "./Backend/Latex Editor"
+    container_name: latex-service
+    environment:
+      - ASPNETCORE_HTTP_PORTS=7252
+      - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=latex_db;Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+      - JwtSettings__Secret=${JWT_SECRET}
+      - JwtSettings__Issuer=AuthService
+      - JwtSettings__Audience=ReactApp
+    ports:
+      - "7252:7252"
+    depends_on:
+      - db
+
+  # Collab Service (Node.js)
+  collab-service:
+    build: ./Backend/CollabService
+    container_name: collab-service
+    environment:
+      - AUTH_API_URL=http://auth-api:7269
+    ports:
+      - "3001:3001"
+
+  # Frontend (React)
+  frontend:
+    build: ./frontend/latex-editor-frontend
+    container_name: react-frontend
+    ports:
+      - "5173:5173"
+    depends_on:
+      - auth-api
+      - latex-server
+      - collab-service
+
+volumes:
+  postgres_data:

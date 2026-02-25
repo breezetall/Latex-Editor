@@ -1,0 +1,139 @@
+import http from 'http';
+import { WebSocketServer, WebSocket } from 'ws';
+import * as Y from 'yjs';
+import jwt from 'jsonwebtoken';
+import pg from 'pg';
+import dotenv from 'dotenv';
+
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const { setupWSConnection } = require('y-websocket');
+
+dotenv.config();
+
+const PORT = 5000;
+const JWT_SECRET = process.env.JWT_KEY || 'your-aspnet-shared-secret';
+
+// Postgres Pool
+const pool = new pg.Pool({
+  connectionString: process.env.DATABASE_URL,
+});
+
+const wss = new WebSocketServer({ noServer: true });
+
+/**
+ * PERSISTENCE LAYER
+ * This bridges Yjs binary data and your Postgres text/bytea columns.
+ */
+const persistence = {
+  bindState: async (docName: string, ydoc: Y.Doc) => {
+    const fileId = docName.split('-')[1];
+
+    // --- 1. LOAD FROM DB (You have this) ---
+    const res = await pool.query(
+      'SELECT text, yjs_state FROM latex WHERE id = $1', 
+      [fileId]
+    );
+    
+    if (res.rows.length > 0) {
+      const row = res.rows[0];
+      if (row.yjs_state) {
+        Y.applyUpdate(ydoc, row.yjs_state);
+      } else if (row.text) {
+        const ytext = ydoc.getText('codemirror');
+        ytext.insert(0, row.text);
+      }
+    }
+
+    // --- 2. SAVE TO DB (ADD THIS PART) ---
+    let timeout: NodeJS.Timeout;
+    ydoc.on('update', () => {
+      // Clear the previous timer if the user types again within 5 seconds
+      clearTimeout(timeout);
+
+      timeout = setTimeout(async () => {
+        // Encode the current state to binary
+        const state = Y.encodeStateAsUpdate(ydoc);
+        // Extract plain text for your .NET previews
+        const plainText = ydoc.getText('codemirror').toString();
+
+        try {
+          await pool.query(
+            `UPDATE latex 
+             SET yjs_state = $1, 
+                 text = $2, 
+                 "Last_Updated" = NOW() 
+             WHERE id = $3`,
+            [state, plainText, fileId]
+          );
+          console.log(`[DB] File-${fileId} synced successfully.`);
+        } catch (err) {
+          console.error('[DB] Save error:', err);
+        }
+      }, 5000); // 5-second debounce
+    });
+  }
+};
+
+const server = http.createServer((req, res) => {
+  if (req.url === '/health') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ status: 'ok' }));
+  }
+});
+
+server.on('upgrade', async (request, socket, head) => {
+  const url = new URL(request.url!, `http://${request.headers.host}`);
+  const token = url.searchParams.get('auth'); 
+  const docName = url.pathname.slice(1); // e.g., "file-123"
+  const fileId = docName.split('-')[1];
+
+  try {
+    if (!token) throw new Error('No token');
+
+    // 1. Verify JWT
+    const decoded = jwt.verify(token, JWT_SECRET) as { sub: string; email: string; nameid?: string };
+    const userId = decoded.nameid || decoded.sub;
+    const userEmail = decoded.email;
+
+    // 2. Database Permission Check
+    // We check: Is the user the OWNER (latex table) OR are they GUEST (file_shares table)?
+    const accessCheck = await pool.query(
+      `SELECT 1 FROM latex l
+       LEFT JOIN "FileShares" s ON l."Id" = s."FileId"
+       WHERE l."Id" = $1 
+       AND (l."UserId" = $2 OR s."SharedWithEmail" = $3)`,
+      [fileId, userId, userEmail]
+    );
+
+    if (accessCheck.rowCount === 0) {
+      console.error(`Access Denied: User ${userEmail} tried to join file ${fileId}`);
+      throw new Error('Forbidden');
+    }
+
+    // 3. If everything is fine, upgrade to WebSocket
+    wss.handleUpgrade(request, socket, head, (ws) => {
+      wss.emit('connection', ws, request);
+    });
+
+  } catch (err: any) {
+    console.error('WebSocket Auth Failed:', err.message);
+    socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+    socket.destroy();
+  }
+});
+
+wss.on('connection', (conn: WebSocket, req: http.IncomingMessage) => {
+  const docName = new URL(req.url!, `http://${req.headers.host}`).pathname.slice(1);
+
+  // This internal y-websocket utility handles the Yjs sync protocol
+  setupWSConnection(conn, req, {
+    docName,
+    gc: true,
+    persistence: persistence
+  });
+});
+
+server.listen(PORT, () => {
+  console.log(`🚀 Collab Engine running on port ${PORT}`);
+});

@@ -1,0 +1,2 @@
+CREATE DATABASE LatexAuthDb;
+CREATE DATABASE latexdb;
