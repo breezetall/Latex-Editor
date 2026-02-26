@@ -32,7 +32,7 @@ This project is fully containerized. You do not need to install local runtimes f
 
 ### 1. Clone the repository
 ```bash
-git clone [https://github.com/breezetall/Latex-Editor.git](https://github.com/breezetall/Latex-Editor.git)
+git clone https://github.com/breezetall/Latex-Editor.git
 cd Latex-Editor
 ```
 
@@ -42,7 +42,7 @@ Run the following command to build the services and start:
 docker compose up --build
 ```
 
-Once the terminal shows the services are running, open your browser to: http://localhost:5173
+Once the terminal shows the services are running, open your browser to: `http://localhost:5173`
 
 ### Key Features
 
