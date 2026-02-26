@@ -66,11 +66,11 @@ builder.Services.AddDbContext<LatexDbContext>(options =>
 var app = builder.Build();
 
 // Comment out when testing
-//using (var scope = app.Services.CreateScope())
-//{
-//    var db = scope.ServiceProvider.GetRequiredService<LatexDbContext>();
-//    db.Database.Migrate();
-//}
+using (var scope = app.Services.CreateScope())
+{
+   var db = scope.ServiceProvider.GetRequiredService<LatexDbContext>();
+   db.Database.Migrate();
+}
 
 app.UseCors("ReactPolicy");
 

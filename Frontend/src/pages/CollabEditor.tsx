@@ -53,13 +53,12 @@ const CollabEditor: React.FC<CollabEditorProps> = ({ fileId, displayName, onUpda
     provider.on('sync', (isSynced: boolean) => {
       if (isSynced) {
         console.log("[Yjs] Successfully synced with server. Content length:", ytext.toString().length);
-        // Manually trigger one update so the preview shows the loaded content
         onUpdateRef.current(ytext.toString());
       }
     }); 
 
     const state = EditorState.create({
-      // doc: ytext.toString(),
+      doc: ytext.toString(),
       extensions: [
         basicSetup,
         StreamLanguage.define(stex), 
@@ -98,16 +97,12 @@ const CollabEditor: React.FC<CollabEditorProps> = ({ fileId, displayName, onUpda
     viewRef.current = view;
 
     return () => {
-      // console.log("Disconnecting from file");
       if (provider) {
         console.log(`Cleaning up connection for file: ${fileId}`);
         provider.destroy(); 
         ydoc.destroy();
         view.destroy();
       } 
-      // provider.disconnect();
-      // ydoc.destroy();
-      // view.destroy();
     };
   }, [fileId]);
 
