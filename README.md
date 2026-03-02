@@ -1,21 +1,17 @@
 # LaTeX Collaborative Editor
 A real-time collaborative LaTeX editor built with a microservices architecture. This project enables multiple users to edit LaTeX documents simultaneously with seamless file management and secure authentication.
 
----
-
 ## Tech Stack
 
 | Layer | Technology | Role |
 | :--- | :--- | :--- |
 | **Frontend** | **React** + **Tailwind CSS** | Responsive UI & Editor Interface |
 | **Real-time** | **Yjs** | Conflict-free Replicated Data Types (CRDT) |
+| **Collaboration Service** | **Node.js** | Shared state syncronization and file management|
 | **Auth Service** | **ASP.NET Core** | Secure JWT-based identity management |
 | **File Service** | **ASP.NET Core** | Handling LaTeX document I/O and exports |
-| **Collaboration Service** | **Node.js** | Shared state syncronization and file management|
 | **Database** | **PostgreSQL** | Persistent storage for users and documents |
 | **DevOps** | **Docker** | Containerization and orchestration |
-
----
 
 ## Architecture Overview
 The system is designed as a suite of independent microservices to ensure scalability:
@@ -23,8 +19,6 @@ The system is designed as a suite of independent microservices to ensure scalabi
 * **Auth Service:** A C# / ASP.NET service handling user registration, login, and token validation.
 * **File Service:** A C# / ASP.NET service dedicated to managing the document lifecycle, document sharing and file system interactions.
 * **Collaboration Service:** A Node.js microservice utilizing **Yjs** for shared state synchronization.
-
----
 
 ## Quick Start (Local Development)
 
@@ -46,12 +40,12 @@ Once the terminal shows the services are running, open your browser to: `http://
 
 ### Key Features
 
-* Real-time Collaboration: Powered by Yjs and Y-websocket for seamless multi-user editing.
+* Real-time Collaboration - Powered by Yjs and Y-websocket for seamless multi-user editing.
 
-* Responsive Design: Fluid and responsive UI.
+* Responsive Design
 
-* Secure: JWT-based authentication flow, ASP.NET Identity for user management.
+* JWT-based authentication flow, ASP.NET Identity for user management.
 
-* Microservice Scalability: Each component can be scaled or updated independently. 
+* Each component can be scaled or updated independently. 
 
-* Database: EF core (Entity Framework) faciliating communications between services and Postgres.
+* EF core (Entity Framework) faciliating communications between services and Postgres.
